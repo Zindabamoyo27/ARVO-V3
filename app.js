@@ -22,6 +22,8 @@ const LOCATION_OPTIONS = {
     timeout: 10000
 };
 
+const STORAGE_KEY = 'ar_notes_data';
+
 // ========================================
 // DOM Elements
 // ========================================
@@ -81,8 +83,8 @@ const elements = {
 async function init() {
     console.log('🚀 Initializing AR Notes App...');
     
-    // Load notes from storage
-    await loadNotes();
+    // Load notes from localStorage
+    loadNotes();
     
     // Setup location tracking
     setupLocationTracking();
@@ -102,42 +104,46 @@ async function init() {
 }
 
 // ========================================
-// Storage Functions
+// Storage Functions (using localStorage)
 // ========================================
-async function loadNotes() {
+function loadNotes() {
     try {
-        const result = await window.storage.list('note:');
-        if (result && result.keys && result.keys.length > 0) {
-            const notePromises = result.keys.map(async (key) => {
-                try {
-                    const data = await window.storage.get(key);
-                    return data ? JSON.parse(data.value) : null;
-                } catch (err) {
-                    console.error(`Failed to load note ${key}:`, err);
-                    return null;
-                }
-            });
-            
-            const loadedNotes = (await Promise.all(notePromises)).filter(n => n !== null);
-            AppState.notes = loadedNotes;
-            console.log(`📝 Loaded ${loadedNotes.length} notes`);
+        const storedData = localStorage.getItem(STORAGE_KEY);
+        if (storedData) {
+            AppState.notes = JSON.parse(storedData);
+            console.log(`📝 Loaded ${AppState.notes.length} notes from storage`);
         } else {
+            AppState.notes = [];
             console.log('📝 No existing notes found');
         }
     } catch (err) {
-        console.log('📝 Starting with empty notes:', err.message);
+        console.error('❌ Failed to load notes:', err);
         AppState.notes = [];
+        showToast('Failed to load notes', 'error');
     }
     
     updateNotesCount();
 }
 
-async function saveNote(note) {
+function saveNotesToStorage() {
     try {
-        await window.storage.set(`note:${note.id}`, JSON.stringify(note));
-        AppState.notes.push(note);
-        console.log('💾 Note saved:', note.id);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(AppState.notes));
         return true;
+    } catch (err) {
+        console.error('❌ Failed to save to storage:', err);
+        showToast('Storage error - try clearing browser data', 'error');
+        return false;
+    }
+}
+
+function saveNote(note) {
+    try {
+        AppState.notes.push(note);
+        const success = saveNotesToStorage();
+        if (success) {
+            console.log('💾 Note saved:', note.id);
+        }
+        return success;
     } catch (err) {
         console.error('❌ Failed to save note:', err);
         showToast('Failed to save note', 'error');
@@ -145,12 +151,14 @@ async function saveNote(note) {
     }
 }
 
-async function deleteNote(noteId) {
+function deleteNote(noteId) {
     try {
-        await window.storage.delete(`note:${noteId}`);
         AppState.notes = AppState.notes.filter(n => n.id !== noteId);
-        console.log('🗑️ Note deleted:', noteId);
-        return true;
+        const success = saveNotesToStorage();
+        if (success) {
+            console.log('🗑️ Note deleted:', noteId);
+        }
+        return success;
     } catch (err) {
         console.error('❌ Failed to delete note:', err);
         showToast('Failed to delete note', 'error');
@@ -496,7 +504,7 @@ function handlePrivacyToggle() {
     elements.privacyText.textContent = isPrivate ? 'Private Note' : 'Public Note';
 }
 
-async function handleSaveNote() {
+function handleSaveNote() {
     const text = elements.noteText.value.trim();
     
     if (!text || !AppState.userLocation) {
@@ -516,7 +524,7 @@ async function handleSaveNote() {
     elements.saveNoteBtn.disabled = true;
     elements.saveNoteBtn.innerHTML = '<span class="icon">⏳</span> Saving...';
     
-    const success = await saveNote(note);
+    const success = saveNote(note);
     
     if (success) {
         showToast('Note saved successfully!', 'success');
@@ -532,10 +540,10 @@ async function handleSaveNote() {
     elements.saveNoteBtn.innerHTML = '<span class="icon">💾</span> Save Note';
 }
 
-async function handleDeleteNote(noteId) {
+function handleDeleteNote(noteId) {
     if (!confirm('Delete this note?')) return;
     
-    const success = await deleteNote(noteId);
+    const success = deleteNote(noteId);
     
     if (success) {
         showToast('Note deleted', 'info');
@@ -580,7 +588,7 @@ function setupPWA() {
         navigator.serviceWorker.register('sw.js').then(reg => {
             console.log('✅ Service Worker registered');
         }).catch(err => {
-            console.error('❌ Service Worker registration failed:', err);
+            console.log('⚠️ Service Worker registration failed:', err);
         });
     }
     
