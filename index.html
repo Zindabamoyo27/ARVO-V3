@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#1f2937">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    
+    <title>AR Notes - Leave Messages in the Real World</title>
+    <meta name="description" content="Leave augmented reality notes at real-world locations">
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="manifest.json">
+    
+    <!-- Icons -->
+    <link rel="icon" type="image/png" sizes="192x192" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>📍</text></svg>">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>📍</text></svg>">
+    
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Install Prompt -->
+    <div id="installPrompt" class="install-prompt hidden">
+        <div class="install-content">
+            <h3>Install AR Notes</h3>
+            <p>Install this app on your device for the best experience</p>
+            <div class="install-buttons">
+                <button id="installBtn" class="btn btn-primary">Install</button>
+                <button id="dismissBtn" class="btn btn-secondary">Not Now</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- App Container -->
+    <div id="app">
+        <!-- Header -->
+        <header class="header">
+            <h1 class="header-title">
+                <span class="icon">📍</span>
+                AR Notes
+            </h1>
+            <div id="statusBar" class="status-bar">
+                <span id="locationStatus" class="status-item">
+                    <span class="status-icon">📡</span>
+                    <span id="locationText">Getting location...</span>
+                </span>
+                <span id="notesCount" class="status-item">
+                    <span class="status-icon">📝</span>
+                    <span id="countText">0 nearby</span>
+                </span>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main id="mainContent" class="main-content">
+            <!-- Map View -->
+            <div id="mapView" class="view active">
+                <div class="location-card">
+                    <div class="location-icon">📍</div>
+                    <h2>Your Location</h2>
+                    <div id="locationInfo" class="location-info">
+                        <p class="loading">Acquiring GPS signal...</p>
+                    </div>
+                </div>
+
+                <div id="nearbySection" class="nearby-section hidden">
+                    <h3 class="section-title">
+                        <span class="icon">🗺️</span>
+                        Nearby Notes
+                    </h3>
+                    <div id="nearbyNotesList" class="notes-list"></div>
+                </div>
+
+                <div id="emptyState" class="empty-state">
+                    <div class="empty-icon">🔍</div>
+                    <p>No notes nearby</p>
+                    <p class="empty-subtitle">Create one to get started!</p>
+                </div>
+            </div>
+
+            <!-- AR View -->
+            <div id="arView" class="view">
+                <div class="ar-container">
+                    <video id="cameraFeed" class="camera-feed" autoplay playsinline></video>
+                    <div id="arOverlay" class="ar-overlay"></div>
+                    <div id="arEmpty" class="ar-empty">
+                        <p>👀 No AR notes in view</p>
+                        <p class="ar-empty-subtitle">Move around to discover notes</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Create Note View -->
+            <div id="createView" class="view">
+                <div class="create-container">
+                    <h2 class="create-title">Create New Note</h2>
+                    
+                    <div class="form-group">
+                        <label for="noteText">Your Message</label>
+                        <textarea 
+                            id="noteText" 
+                            class="note-input" 
+                            placeholder="What do you want to say at this location?"
+                            rows="6"
+                            maxlength="280"
+                        ></textarea>
+                        <div class="char-count">
+                            <span id="charCount">0</span>/280
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="toggle-label">
+                            <input type="checkbox" id="privateToggle" class="toggle-input">
+                            <span class="toggle-slider"></span>
+                            <span class="toggle-text">
+                                <span class="icon" id="privacyIcon">🌐</span>
+                                <span id="privacyText">Public Note</span>
+                            </span>
+                        </label>
+                        <p class="help-text">Private notes are only visible to you</p>
+                    </div>
+
+                    <div class="location-preview">
+                        <div class="icon">📍</div>
+                        <div id="createLocationInfo">
+                            <p class="loading">Loading location...</p>
+                        </div>
+                    </div>
+
+                    <button id="saveNoteBtn" class="btn btn-primary btn-large" disabled>
+                        <span class="icon">💾</span>
+                        Save Note
+                    </button>
+                </div>
+            </div>
+
+            <!-- All Notes View -->
+            <div id="listView" class="view">
+                <div class="list-container">
+                    <h2 class="list-title">All Your Notes</h2>
+                    <div id="allNotesList" class="notes-list"></div>
+                    <div id="listEmpty" class="empty-state">
+                        <div class="empty-icon">📝</div>
+                        <p>No notes yet</p>
+                        <p class="empty-subtitle">Create your first note!</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Bottom Navigation -->
+        <nav class="bottom-nav">
+            <button class="nav-btn active" data-view="map">
+                <span class="nav-icon">🗺️</span>
+                <span class="nav-label">Map</span>
+            </button>
+            <button class="nav-btn" data-view="ar">
+                <span class="nav-icon">📷</span>
+                <span class="nav-label">AR View</span>
+            </button>
+            <button class="nav-btn nav-btn-primary" data-view="create">
+                <span class="nav-icon">➕</span>
+                <span class="nav-label">Create</span>
+            </button>
+            <button class="nav-btn" data-view="list">
+                <span class="nav-icon">📋</span>
+                <span class="nav-label">All Notes</span>
+            </button>
+        </nav>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="spinner"></div>
+        <p>Loading AR Notes...</p>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <script src="app.js"></script>
+</body>
+</html>
